@@ -78,7 +78,7 @@ def home():
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-      <title>Ultimate OX Game</title>
+      <title>Segni OX Game</title>
       <style>
         :root {
           --primary: #3B82F6;
@@ -404,7 +404,7 @@ def home():
     <body>
       <div class="container">
         <div class="card floating">
-          <h1><i class="fas fa-gamepad"></i> Ultimate OX Game</h1>
+          <h1><i class="fas fa-gamepad"></i> Segni OX Game</h1>
           <p class="subtitle">The most advanced Tic-Tac-Toe experience online</p>
           
           <div class="tabs">
@@ -742,7 +742,7 @@ def game(game_id):
     <html>
     <head>
       <meta charset="utf-8" />
-      <title>Game {{game_id}} - Ultimate OX</title>
+      <title>Game {{game_id}} - Segni OX</title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
       <style>
         :root {
@@ -1260,7 +1260,7 @@ def game(game_id):
       <div class="game-container">
         <div class="panel">
           <div class="header">
-            <h1><i class="fas fa-gamepad"></i> Ultimate OX Game</h1>
+            <h1><i class="fas fa-gamepad"></i> Segni OX Game</h1>
             <div class="game-id">Game ID: <strong>{{ game_id }}</strong></div>
             <div class="player-info">
               <div class="player-badge {% if player != 'spectator' %}you{% endif %}">
@@ -1900,4 +1900,5 @@ def handle_send_chat(data):
         emit('chat_message', chat_record, room=game_id)
 
 if __name__ == '__main__':
+
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
