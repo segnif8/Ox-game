@@ -423,21 +423,21 @@ def home():
               <div class="form-group">
                 <label for="game_mode">Game Mode</label>
                 <select id="game_mode" name="game_mode">
-                  <option value="standard" style="color:black;">Standard</option>
-                  <option value="timed" style="color:black;">Timed (60s per move)</option>
-                  <option value="blitz" style="color:black;">Blitz (10s per move)</option>
-                  <option value="ultimate" style="color:black;">Ultimate (3D 4x4x4)</option>
+                  <option value="standard">Standard</option>
+                  <option value="timed">Timed (60s per move)</option>
+                  <option value="blitz">Blitz (10s per move)</option>
+                  <option value="ultimate">Ultimate (3D 4x4x4)</option>
                 </select>
               </div>
               
               <div class="form-group">
                 <label for="theme">Theme</label>
                 <select id="theme" name="theme">
-                  <option value="classic" style="color:black;">Classic</option>
-                  <option value="dark" style="color:black;">Dark Mode</option>
-                  <option value="neon" style="color:black;">Neon</option>
-                  <option value="nature" style="color:black;">Nature</option>
-                  <option value="retro" style="color:black;">Retro</option>
+                  <option value="classic">Classic</option>
+                  <option value="dark">Dark Mode</option>
+                  <option value="neon">Neon</option>
+                  <option value="nature">Nature</option>
+                  <option value="retro">Retro</option>
                 </select>
               </div>
               
@@ -920,8 +920,7 @@ def game(game_id):
         
         .cell:not(.x-symbol):not(.o-symbol):hover {
           background: rgba(255, 255, 255, 0.2);
-          transform: translateY(-4px);
-        }
+          }
         
         .cell.disabled {
           cursor: not-allowed;
@@ -940,7 +939,10 @@ def game(game_id):
         }
         
         @keyframes pulseScale {
-          0% { transform: scale(1); }
+  0% { transform: none; }
+  50% { transform: none; }
+  100% { transform: none; }
+}
           50% { transform: scale(1.1); }
           100% { transform: scale(1); }
         }
@@ -1181,7 +1183,12 @@ def game(game_id):
         
         /* Animations */
         @keyframes celebrate {
-          0% { transform: scale(1); color: #fff; }
+  0% { transform: none; color: #fff; }
+  25% { transform: none; color: #FFD700; }
+  50% { transform: none; color: #FF6B6B; }
+  75% { transform: none; color: #4ECDC4; }
+  100% { transform: none; color: #fff; }
+}
           25% { transform: scale(1.2); color: #FFD700; }
           50% { transform: scale(1); color: #FF6B6B; }
           75% { transform: scale(1.2); color: #4ECDC4; }
@@ -1900,5 +1907,4 @@ def handle_send_chat(data):
         emit('chat_message', chat_record, room=game_id)
 
 if __name__ == '__main__':
-
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
