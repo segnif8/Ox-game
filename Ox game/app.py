@@ -78,7 +78,7 @@ def home():
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-      <title>Segni OX Game</title>
+      <title>Ultimate OX Game</title>
       <style>
         :root {
           --primary: #3B82F6;
@@ -404,7 +404,7 @@ def home():
     <body>
       <div class="container">
         <div class="card floating">
-          <h1><i class="fas fa-gamepad"></i> Segni OX Game</h1>
+          <h1><i class="fas fa-gamepad"></i> Ultimate OX Game</h1>
           <p class="subtitle">The most advanced Tic-Tac-Toe experience online</p>
           
           <div class="tabs">
@@ -742,7 +742,7 @@ def game(game_id):
     <html>
     <head>
       <meta charset="utf-8" />
-      <title>Game {{game_id}} - Segni OX</title>
+      <title>Game {{game_id}} - Ultimate OX</title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
       <style>
         :root {
@@ -901,8 +901,11 @@ def game(game_id):
           font-weight: 800;
           cursor: pointer;
           user-select: none;
-          transition: all 0.2s ease;
+          transition: background 0.2s ease;
           position: relative;
+  width: 100%;
+  height: 100%;
+  line-height: 1;
           overflow: hidden;
         }
         
@@ -920,7 +923,8 @@ def game(game_id):
         
         .cell:not(.x-symbol):not(.o-symbol):hover {
           background: rgba(255, 255, 255, 0.2);
-          }
+          
+        }
         
         .cell.disabled {
           cursor: not-allowed;
@@ -1267,7 +1271,7 @@ def game(game_id):
       <div class="game-container">
         <div class="panel">
           <div class="header">
-            <h1><i class="fas fa-gamepad"></i> Segni OX Game</h1>
+            <h1><i class="fas fa-gamepad"></i> Ultimate OX Game</h1>
             <div class="game-id">Game ID: <strong>{{ game_id }}</strong></div>
             <div class="player-info">
               <div class="player-badge {% if player != 'spectator' %}you{% endif %}">
