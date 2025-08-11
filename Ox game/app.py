@@ -1,3 +1,4 @@
+import os, json
 from flask import Flask, render_template_string, request, redirect, url_for, session
 from flask_socketio import SocketIO, join_room, leave_room, emit
 import random
@@ -6,7 +7,23 @@ from datetime import timedelta
 import time
 from collections import defaultdict
 
-app = Flask(__name__)
+app = Flask(__name__, instance_relative_config=True)
+# Ensure instance folder exists
+os.makedirs(app.instance_path, exist_ok=True)
+USERS_FILE = os.path.join(app.instance_path, 'users.json')
+if not os.path.exists(USERS_FILE):
+    with open(USERS_FILE, 'w') as f:
+        json.dump([], f)
+
+def load_users():
+    with open(USERS_FILE, 'r') as f:
+        return json.load(f)
+
+def save_users(users):
+    with open(USERS_FILE, 'w') as f:
+        json.dump(users, f)
+
+
 app.secret_key = 'your_secret_key_here'  # change this in production
 app.permanent_session_lifetime = timedelta(minutes=30)
 
@@ -18,6 +35,7 @@ games = {}
 chat_messages = defaultdict(list)
 player_stats = defaultdict(lambda: {'wins': 0, 'losses': 0, 'ties': 0, 'games_played': 0})
 active_players = set()
+waiting_player = None
 
 def generate_game_id():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -78,7 +96,7 @@ def home():
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-      <title>Ultimate OX Game</title>
+      <title>Segni OX Game</title>
       <style>
         :root {
           --primary: #3B82F6;
@@ -404,7 +422,7 @@ def home():
     <body>
       <div class="container">
         <div class="card floating">
-          <h1><i class="fas fa-gamepad"></i> Ultimate OX Game</h1>
+          <h1><i class="fas fa-gamepad"></i> Segni OX Game</h1>
           <p class="subtitle">The most advanced Tic-Tac-Toe experience online</p>
           
           <div class="tabs">
@@ -446,6 +464,17 @@ def home():
               </button>
             </form>
             
+            <div class="divider">OR</div>
+            
+            <form action="/random" method="post" id="randomForm">
+              <div class="form-group">
+                <label for="random_player_name">Your Name</label>
+                <input type="text" id="random_player_name" name="player_name" placeholder="Enter your name" required>
+              </div>
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-random"></i> Play with Random Player
+              </button>
+            </form>
             <div class="divider">OR</div>
             
             <form action="/join" method="post" id="joinForm">
@@ -645,6 +674,134 @@ def create_game():
     session['player_name'] = player_name
     return redirect(url_for('game', game_id=game_id))
 
+
+
+@app.route('/random', methods=['POST'])
+def random_match():
+    # Simple matchmaking: store a single waiting player token in memory.
+    global waiting_player
+    player_name = request.form.get('player_name', '').strip() or 'Player'
+    # generate a token for this waiting session and store in Flask session
+    token = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
+    session['random_token'] = token
+    session.modified = True
+
+    # If there's an existing waiting player who is not this same token -> create a game
+    if waiting_player and not waiting_player.get('matched') and waiting_player.get('token') != token:
+        opponent_name = waiting_player.get('player_name', 'Player X')
+        game_id = generate_game_id()
+        games[game_id] = {
+            'board': [[' ', ' ', ' '] for _ in range(3)],
+            'players': ['X', 'O'],
+            'player_names': {'X': opponent_name, 'O': player_name},
+            'current_player': 'X',
+            'winner': None,
+            'winning_cells': [],
+            'scores': {'X': 0, 'O': 0},
+            'move_history': [],
+            'game_start_time': time.time(),
+            'last_move_time': time.time(),
+            'time_controls': None,
+            'theme': 'classic',
+            'game_mode': 'standard',
+            'spectators': []
+        }
+        # Mark waiting player as matched so their poll will know
+        waiting_player['matched'] = True
+        waiting_player['game_id'] = game_id
+        waiting_player['opponent'] = player_name
+
+        # Set session for the second player (this request)
+        session['game_id'] = game_id
+        session['player'] = 'O'
+        session['player_name'] = player_name
+        return redirect(url_for('game', game_id=game_id))
+
+    # Otherwise become the waiting player and go to the waiting page
+    waiting_player = {
+        'token': token,
+        'player_name': player_name,
+        'matched': False,
+        'game_id': None,
+        'created_at': time.time()
+    }
+    return redirect(url_for('random_wait'))
+
+
+@app.route('/random_wait')
+def random_wait():
+    # Only reachable if the user has recently POSTed to /random and has a token in session
+    token = session.get('random_token')
+    if not token:
+        return redirect(url_for('home'))
+
+    return render_template_string('''
+    <!doctype html>
+    <html><head><meta charset="utf-8"><title>Waiting for match</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>body{font-family:sans-serif;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center} .btn{padding:10px 14px;border-radius:8px;background:#F59E0B;color:#111;border:none;cursor:pointer}</style>
+    </head><body>
+      <div>
+        <h2>Waiting for another player...</h2>
+        <p>Keep this page open. We'll redirect you automatically when a match is found.</p>
+        <p><button id="cancelBtn" class="btn">Cancel and return</button></p>
+      </div>
+      <script>
+        const interval = setInterval(() => {
+          fetch('/random_status').then(r => r.json()).then(data => {
+            if (data && data.matched) {
+              clearInterval(interval);
+              window.location.href = '/game/' + data.game_id;
+            }
+          }).catch(() => {});
+        }, 1400);
+
+        document.getElementById('cancelBtn').addEventListener('click', () => {
+          fetch('/random_cancel', {method: 'POST'}).then(() => {
+            window.location.href = '/';
+          }).catch(() => window.location.href = '/');
+        });
+      </script>
+    </body></html>
+    ''')
+
+
+@app.route('/random_status')
+def random_status():
+    # Polled by the waiting player to see if they've been matched.
+    global waiting_player
+    token = session.get('random_token')
+    if not token:
+        return {'matched': False}
+
+    if waiting_player and waiting_player.get('token') == token and waiting_player.get('matched'):
+        game_id = waiting_player.get('game_id')
+        player_name = waiting_player.get('player_name')
+        # Clear waiting_player so next match can start cleanly
+        waiting_player = None
+        # Set session so the waiting player can join the game as X
+        session.pop('random_token', None)
+        session['game_id'] = game_id
+        session['player'] = 'X'
+        session['player_name'] = player_name
+        session.modified = True
+        return {'matched': True, 'game_id': game_id}
+
+    # If there's a matched waiting_player but token doesn't match, or not matched yet
+    return {'matched': False}
+
+
+@app.route('/random_cancel', methods=['POST'])
+def random_cancel():
+    # Cancel the current waiting state for this session if it matches
+    global waiting_player
+    token = session.get('random_token')
+    if token and waiting_player and waiting_player.get('token') == token:
+        waiting_player = None
+        session.pop('random_token', None)
+        session.modified = True
+    return redirect(url_for('home'))
+
 @app.route('/join', methods=['POST'])
 def join_game():
     game_id = request.form['game_id'].upper().strip()
@@ -742,7 +899,7 @@ def game(game_id):
     <html>
     <head>
       <meta charset="utf-8" />
-      <title>Game {{game_id}} - Ultimate OX</title>
+      <title>Game {{game_id}} - Segni OX</title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
       <style>
         :root {
@@ -1271,7 +1428,7 @@ def game(game_id):
       <div class="game-container">
         <div class="panel">
           <div class="header">
-            <h1><i class="fas fa-gamepad"></i> Ultimate OX Game</h1>
+            <h1><i class="fas fa-gamepad"></i> Segni OX Game</h1>
             <div class="game-id">Game ID: <strong>{{ game_id }}</strong></div>
             <div class="player-info">
               <div class="player-badge {% if player != 'spectator' %}you{% endif %}">
@@ -1909,6 +2066,84 @@ def handle_send_chat(data):
         
         # Broadcast to all in the room
         emit('chat_message', chat_record, room=game_id)
+
+
+# ========== AUTHENTICATION ROUTES ==========
+from flask import flash
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username'].strip()
+        password = request.form['password'].strip()
+        users = load_users()
+        if any(u['username'] == username for u in users):
+            flash('Username already exists!', 'error')
+        else:
+            users.append({'username': username, 'password': password})
+            save_users(users)
+            flash('Registered successfully! Please login.', 'success')
+            return redirect(url_for('login'))
+    return render_template_string('''<h2>Register</h2>
+        <form method="post">
+            <input name="username" placeholder="Username" required><br>
+            <input type="password" name="password" placeholder="Password" required><br>
+            <button type="submit">Register</button>
+        </form>
+        <a href="{{ url_for('login') }}">Login</a>
+    ''')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username'].strip()
+        password = request.form['password'].strip()
+        if username == 'segni' and password == 'segni@1234':
+            session['admin'] = True
+            return redirect(url_for('admin_dashboard'))
+        users = load_users()
+        if any(u['username'] == username and u['password'] == password for u in users):
+            session['user'] = username
+            return redirect(url_for('home'))
+        flash('Invalid credentials!', 'error')
+    return render_template_string('''<h2>Login</h2>
+        <form method="post">
+            <input name="username" placeholder="Username" required><br>
+            <input type="password" name="password" placeholder="Password" required><br>
+            <button type="submit">Login</button>
+        </form>
+        <a href="{{ url_for('register') }}">Register</a>
+    ''')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+@app.route('/admin')
+def admin_dashboard():
+    if not session.get('admin'):
+        return redirect(url_for('login'))
+    users = load_users()
+    return render_template_string('''<h2>Admin Dashboard</h2>
+        <ul>
+            {% for u in users %}
+                <li>{{ u.username if u.get('username') else u['username'] }}
+                    <a href="{{ url_for('delete_user', username=u['username']) }}">Delete</a>
+                </li>
+            {% endfor %}
+        </ul>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    ''', users=users)
+
+@app.route('/admin/delete/<username>')
+def delete_user(username):
+    if not session.get('admin'):
+        return redirect(url_for('login'))
+    users = load_users()
+    users = [u for u in users if u['username'] != username]
+    save_users(users)
+    return redirect(url_for('admin_dashboard'))
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)
